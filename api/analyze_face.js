@@ -128,7 +128,7 @@ module.exports = async (req, res) => {
       .filter(Boolean);
 
     return res.status(200).json({ insights });
-  } catch (err) {
+   } catch (err) {
     console.error("[Facelex] API error:", err);
     // Herhangi bir hata olursa yine boş dön → iOS 'You are good!' mesajı gösterir.
     return res.status(500).json({ insights: [] });
