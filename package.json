@@ -2,5 +2,8 @@
   "name": "facelex-backend",
   "version": "1.0.0",
   "main": "api/analyze_face.js",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "openai": "^4.68.0"
+  }
 }
