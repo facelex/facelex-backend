@@ -7,8 +7,15 @@ const client = new OpenAI({
 });
 
 module.exports = async (req, res) => {
+  // 1) GET ile açanlara basit mesaj ver, hataya düşme
+  if (req.method !== "POST") {
+    return res.status(200).json({
+      error: "Use POST with JSON body { front_image: base64 }.",
+    });
+  }
+
   try {
-    // Body bazen string, bazen JSON gelebilir
+    // Body bazen string, bazen JSON olabilir
     let body = req.body;
     if (typeof body === "string") {
       try {
@@ -17,8 +24,11 @@ module.exports = async (req, res) => {
         body = {};
       }
     }
+    if (!body || typeof body !== "object") {
+      body = {};
+    }
 
-    const front_image = body?.front_image;
+    const front_image = body.front_image;
 
     if (!front_image) {
       return res.status(400).json({ error: "Missing front_image (base64)." });
@@ -35,7 +45,7 @@ module.exports = async (req, res) => {
             {
               type: "text",
               text:
-                "You are Facelex, an AI that gives *non-medical* wellness insights " +
+                "You are Facelex, an AI that gives non-medical wellness insights " +
                 "from a single face photo. You are NOT a doctor and you do NOT " +
                 "diagnose diseases. You only comment on visible patterns and " +
                 "lifestyle-related suggestions.",
@@ -85,7 +95,6 @@ module.exports = async (req, res) => {
     const choice = completion.choices?.[0];
     let content = choice?.message?.content;
 
-    // content bazen string, bazen {type:"text"} array'i olabilir
     if (Array.isArray(content)) {
       const textPart = content.find((c) => c.type === "text");
       content = textPart ? textPart.text : "";
@@ -100,11 +109,9 @@ module.exports = async (req, res) => {
       insightsRaw = JSON.parse(content);
     } catch (e) {
       console.error("[Facelex] JSON parse failed. Raw content:", content);
-      // Parse edilemezse: uygulama "You are good!" desin diye boş dön.
       return res.status(200).json({ insights: [] });
     }
 
-    // --- Normalize: Swift tarafının beklediği shape'e çevir ---
     const normalizedArray = Array.isArray(insightsRaw) ? insightsRaw : [];
 
     const insights = normalizedArray
@@ -112,7 +119,6 @@ module.exports = async (req, res) => {
         if (!item || typeof item !== "object") return null;
 
         let level = String(item.level || "").toUpperCase().trim();
-
         if (level === "HIGH" || level === "HIGH_RISK") level = "HIGH RISK";
         if (!["SLIGHT", "MILD", "HIGH RISK"].includes(level)) {
           level = "SLIGHT";
@@ -122,15 +128,17 @@ module.exports = async (req, res) => {
           level,
           title: String(item.title || "Insight").slice(0, 80),
           subtitle: String(item.subtitle || "").slice(0, 160),
-          action: String(item.action || "Consider small lifestyle improvements.").slice(0, 200),
+          action: String(item.action || "Consider small lifestyle improvements.").slice(
+            0,
+            200
+          ),
         };
       })
       .filter(Boolean);
 
     return res.status(200).json({ insights });
-   } catch (err) {
+  } catch (err) {
     console.error("[Facelex] API error:", err);
-    // Herhangi bir hata olursa yine boş dön → iOS 'You are good!' mesajı gösterir.
     return res.status(500).json({ insights: [] });
   }
 };
